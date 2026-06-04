@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Stock Sales Tracker</title>
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Stock Tracker" />
+  <meta name="theme-color" content="#0d0d0f" />
+  <link rel="manifest" href="manifest.json" />
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0d0d0f; --surface: #13131a; --surface2: #16161a;
+      --border: #1e1e24; --border2: #2a2a2e;
+      --text: #f0ece0; --muted: #a09880; --dim: #5a5850;
+      --accent: #e8c547; --green: #7bffb8; --red: #ff7b5e;
+      --font-mono: 'Courier Prime','Courier New',monospace;
+      --font-display: 'Bebas Neue',sans-serif;
+    }
+    html,body { min-height:100vh; background:var(--bg); color:var(--text); font-family:var(--font-mono); }
+    body { padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+    ::-webkit-scrollbar { width:5px; background:var(--surface2); }
+    ::-webkit-scrollbar-thumb { background:var(--border2); border-radius:3px; }
+    #app { max-width:980px; margin:0 auto; padding:28px 16px 48px; }
+
+    .header { display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px; margin-bottom:32px; }
+    .header-title .line1 { font-family:var(--font-display); font-size:40px; letter-spacing:4px; color:var(--accent); line-height:1; }
+    .header-title .line2 { font-family:var(--font-display); font-size:40px; letter-spacing:4px; color:var(--text); line-height:1; }
+    .header-sub { font-size:11px; letter-spacing:2px; color:var(--dim); margin-top:6px; }
+    .header-btns { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
+    .btn-primary { background:var(--accent); color:var(--bg); border:none; padding:10px 22px; font-family:var(--font-display); font-size:16px; letter-spacing:1.5px; cursor:pointer; border-radius:3px; transition:opacity .15s; white-space:nowrap; }
+    .btn-primary:hover { opacity:.82; }
+    .btn-ghost { background:transparent; color:var(--muted); border:1px solid var(--border2); padding:7px 14px; font-family:var(--font-mono); font-size:12px; cursor:pointer; border-radius:3px; transition:border-color .15s,color .15s; white-space:nowrap; }
+    .btn-ghost:hover { border-color:var(--accent); color:var(--accent); }
+    .btn-danger { color:var(--red); border-color:#2a1a1a; }
+    .btn-danger:hover { border-color:var(--red); }
+    .btn-sm { font-size:11px; padding:5px 11px; }
+    .btn-green { color:var(--green); border-color:#1a2a1e; }
+    .btn-green:hover { border-color:var(--green); }
+
+    /* Sync status bar */
+    .sync-bar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; background:var(--surface); border:1px solid var(--border); border-radius:5px; padding:10px 16px; margin-bottom:18px; }
+    .sync-status { font-size:12px; display:flex; align-items:center; gap:7px; }
+    .sync-dot { width:8px; height:8px; border-radius:50%; background:var(--dim); flex-shrink:0; }
+    .sync-dot.connected { background:var(--green); box-shadow:0 0 6px var(--green); }
+    .sync-dot.syncing { background:var(--accent); animation:pulse .8s infinite; }
+    .sync-dot.error { background:var(--red); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .sync-label { color:var(--muted); }
+    .sync-actions { display:flex; gap:7px; }
+
+    /* Settings panel */
+    .settings-panel { background:var(--surface); border:1px solid var(--border2); border-radius:6px; padding:20px; margin-bottom:20px; display:none; }
+    .settings-panel.open { display:block; }
+    .settings-title { font-family:var(--font-display); font-size:16px; letter-spacing:2px; color:var(--accent); margin-bottom:14px; }
+    .settings-field label { display:block; font-size:10px; color:var(--dim); letter-spacing:1.5px; margin-bottom:4px; }
+    .settings-field input { background:var(--surface2); border:1px solid var(--border2); color:var(--text); padding:9px 11px; font-family:var(--font-mono); font-size:12px; border-radius:3px; width:100%; outline:none; transition:border-color .15s; }
+    .settings-field input:focus { border-color:var(--accent); }
+    .settings-hint { font-size:11px; color:var(--dim); margin-top:6px; line-height:1.5; }
+    .settings-hint a { color:var(--accent); }
+    .settings-footer { display:flex; gap:10px; margin-top:14px; justify-content:flex-end; flex-wrap:wrap; }
+
+    /* Toast */
+    #toast { position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--surface); border:1px solid var(--border2); color:var(--text); padding:10px 20px; border-radius:4px; font-size:13px; letter-spacing:.5px; transition:transform .3s; z-index:999; white-space:nowrap; pointer-events:none; }
+    #toast.show { transform:translateX(-50%) translateY(0); }
+    #toast.success { border-color:var(--green); color:var(--green); }
+    #toast.error { border-color:var(--red); color:var(--red); }
+
+    /* Form */
+    .form-panel { background:var(--surface); border:1px solid var(--border2); border-radius:6px; padding:22px; margin-bottom:24px; display:none; }
+    .form-panel.open { display:block; }
+    .form-title { font-family:var(--font-display); font-size:17px; letter-spacing:2px; color:var(--accent); margin-bottom:16px; }
+    .form-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; }
+    .field label { display:block; font-size:10px; color:var(--dim); letter-spacing:1.5px; margin-bottom:4px; }
+    .field input { background:var(--surface2); border:1px solid var(--border2); color:var(--text); padding:9px 11px; font-family:var(--font-mono); font-size:13px; border-radius:3px; width:100%; outline:none; transition:border-color .15s; -webkit-appearance:none; }
+    .field input:focus { border-color:var(--accent); }
+    .form-footer { display:flex; justify-content:flex-end; align-items:center; gap:12px; margin-top:14px; flex-wrap:wrap; }
+    .form-preview { font-size:12px; color:var(--muted); margin-right:auto; }
+
+    /* Stats */
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(148px,1fr)); gap:10px; margin-bottom:24px; }
+    .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:5px; padding:13px 15px; }
+    .stat-label { font-size:10px; color:var(--dim); letter-spacing:1.5px; margin-bottom:5px; }
+    .stat-value { font-family:var(--font-display); font-size:21px; letter-spacing:2px; }
+    .stat-sub { font-size:11px; color:var(--dim); margin-top:2px; }
+
+    /* Progress */
+    .progress-card { background:var(--surface); border:1px solid var(--border); border-radius:5px; padding:16px 18px; margin-bottom:24px; }
+    .progress-header { display:flex; justify-content:space-between; margin-bottom:10px; }
+    .progress-label { font-family:var(--font-display); font-size:14px; letter-spacing:2px; color:var(--muted); }
+    .progress-pct { font-family:var(--font-display); font-size:18px; color:var(--accent); }
+    .progress-track { height:10px; background:var(--border); border-radius:2px; overflow:hidden; }
+    .progress-fill { height:100%; background:linear-gradient(90deg,var(--accent),#ffec8a); border-radius:2px; transition:width .7s cubic-bezier(.4,0,.2,1); width:0%; }
+    .progress-range { display:flex; justify-content:space-between; margin-top:5px; font-size:11px; color:var(--dim); }
+
+    /* Breakdown */
+    .breakdown-card { background:var(--surface); border:1px solid var(--border); border-radius:5px; padding:16px 18px; margin-bottom:24px; }
+    .section-title { font-family:var(--font-display); font-size:14px; letter-spacing:2px; color:var(--muted); margin-bottom:13px; }
+    .ticker-chips { display:flex; flex-wrap:wrap; gap:9px; }
+    .ticker-chip { background:var(--surface2); border:1px solid var(--border2); border-radius:4px; padding:9px 14px; cursor:pointer; min-width:110px; transition:border-color .15s; }
+    .ticker-chip-name { font-family:var(--font-display); font-size:17px; letter-spacing:2px; }
+    .ticker-chip-proceeds { font-size:13px; color:var(--text); }
+    .ticker-chip-pl { font-size:11px; }
+    .filter-note { margin-top:10px; font-size:12px; color:var(--dim); }
+
+    /* Table */
+    .table-card { background:var(--surface); border:1px solid var(--border); border-radius:5px; overflow:hidden; }
+    .table-header { padding:13px 18px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+    .table-header-title { font-family:var(--font-display); font-size:14px; letter-spacing:2px; color:var(--muted); }
+    .table-empty { padding:40px 20px; text-align:center; color:#2e2c28; font-family:var(--font-display); font-size:18px; letter-spacing:3px; }
+    .table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    table { width:100%; border-collapse:collapse; min-width:640px; }
+    th { color:var(--muted); font-family:var(--font-mono); font-size:11px; text-transform:uppercase; letter-spacing:1px; cursor:pointer; padding:9px 11px; text-align:left; white-space:nowrap; user-select:none; border:none; background:transparent; }
+    th:hover { color:var(--accent); }
+    td { padding:9px 11px; font-size:13px; border-bottom:1px solid #141418; white-space:nowrap; }
+    tr:hover td { background:#16161a; }
+    tr:last-child td { border-bottom:none; }
+    .sort-icon { margin-left:3px; font-size:10px; opacity:.3; }
+    .sort-icon.active { opacity:1; }
+    .chip { display:inline-block; padding:2px 9px; border-radius:2px; font-size:11px; font-weight:700; letter-spacing:1px; }
+    .td-muted { color:var(--muted); }
+    .td-dim { color:var(--dim); }
+    .pos { color:var(--green); }
+    .neg { color:var(--red); }
+    .bold { font-weight:700; }
+    .td-actions { display:flex; gap:6px; }
+    .sync-indicator { font-size:10px; color:var(--dim); margin-left:4px; }
+    .sync-indicator.synced { color:var(--green); }
+    .sync-indicator.pending { color:var(--accent); }
+
+    .footer { text-align:center; margin-top:22px; font-size:10px; color:#1e1c18; letter-spacing:2px; }
+    @media(max-width:500px) {
+      .header-title .line1,.header-title .line2 { font-size:32px; }
+      #app { padding:20px 12px 40px; }
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <div class="header">
+    <div class="header-title">
+      <div class="line1">STOCK SALES</div>
+      <div class="line2">TRACKER</div>
+      <div class="header-sub">GOAL: $50,000 &nbsp;·&nbsp; DEADLINE: NOV 1, 2026</div>
+    </div>
+    <div class="header-btns">
+      <button class="btn-ghost btn-sm" id="settingsBtn">⚙ SHEETS</button>
+      <button class="btn-ghost btn-sm" id="exportBtn">⬇ CSV</button>
+      <button class="btn-primary" id="toggleFormBtn">+ LOG SALE</button>
+    </div>
+  </div>
+
+  <!-- Google Sheets Settings -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-title">GOOGLE SHEETS SYNC</div>
+    <div class="settings-field">
+      <label>APPS SCRIPT WEB APP URL</label>
+      <input id="scriptUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" />
+      <div class="settings-hint">
+        Paste your Google Apps Script deployment URL here.<br/>
+        Don't have one yet? See the setup instructions in <strong>SETUP.md</strong> included with your download.
+      </div>
+    </div>
+    <div class="settings-footer">
+      <button class="btn-ghost btn-sm" id="closeSettingsBtn">CANCEL</button>
+      <button class="btn-ghost btn-sm btn-green" id="testSyncBtn">TEST CONNECTION</button>
+      <button class="btn-primary" id="saveSettingsBtn">SAVE</button>
+    </div>
+  </div>
+
+  <!-- Sync Status Bar -->
+  <div class="sync-bar">
+    <div class="sync-status">
+      <div class="sync-dot" id="syncDot"></div>
+      <span class="sync-label" id="syncLabel">Google Sheets not connected — click ⚙ SHEETS to set up</span>
+    </div>
+    <div class="sync-actions">
+      <button class="btn-ghost btn-sm btn-green" id="importBtn">⬆ IMPORT FROM SHEETS</button>
+      <button class="btn-ghost btn-sm" id="syncNowBtn">↻ SYNC NOW</button>
+    </div>
+  </div>
+
+  <!-- Sale Form -->
+  <div class="form-panel" id="formPanel">
+    <div class="form-title" id="formTitle">LOG NEW SALE</div>
+    <div class="form-grid">
+      <div class="field"><label>TICKER *</label><input id="f-ticker" placeholder="AAPL" maxlength="8" autocomplete="off" autocapitalize="characters" /></div>
+      <div class="field"><label>SHARES *</label><input id="f-shares" type="number" placeholder="100" min="0" /></div>
+      <div class="field"><label>COST BASIS / SH *</label><input id="f-cost" type="number" placeholder="42.00" min="0" step="0.01" /></div>
+      <div class="field"><label>SALE PRICE / SH *</label><input id="f-sale" type="number" placeholder="55.00" min="0" step="0.01" /></div>
+      <div class="field"><label>DATE *</label><input id="f-date" type="date" /></div>
+      <div class="field"><label>NOTES</label><input id="f-notes" placeholder="optional" /></div>
+    </div>
+    <div class="form-footer">
+      <span class="form-preview" id="formPreview"></span>
+      <button class="btn-ghost" id="cancelFormBtn">CANCEL</button>
+      <button class="btn-primary" id="submitBtn">LOG SALE</button>
+    </div>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <!-- Progress -->
+  <div class="progress-card">
+    <div class="progress-header">
+      <span class="progress-label">GOAL PROGRESS</span>
+      <span class="progress-pct" id="progressPct">0.0%</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-range">
+      <span id="progressCurrent">$0.00</span>
+      <span>$50,000.00</span>
+    </div>
+  </div>
+
+  <!-- Ticker Breakdown -->
+  <div class="breakdown-card" id="breakdownCard" style="display:none;">
+    <div class="section-title">BREAKDOWN BY TICKER</div>
+    <div class="ticker-chips" id="tickerChips"></div>
+    <div class="filter-note" id="filterNote" style="display:none;"></div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-card">
+    <div class="table-header">
+      <span class="table-header-title" id="tableTitle">SALES LOG (0)</span>
+      <button class="btn-ghost btn-sm" id="clearFilterBtn" style="display:none;">CLEAR FILTER</button>
+    </div>
+    <div id="tableEmpty" class="table-empty">NO SALES LOGGED YET</div>
+    <div class="table-wrap" id="tableWrap" style="display:none;">
+      <table>
+        <thead><tr id="tableHead"></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">DATA SAVED LOCALLY + GOOGLE SHEETS &nbsp;·&nbsp; NOT FINANCIAL ADVICE</div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── Config ───────────────────────────────────────────────────────────────────
+const GOAL = 50000;
+const DEADLINE = new Date("2026-11-01");
+const TICKER_COLORS = ["#e8c547","#5eb8ff","#ff7b5e","#7bffb8","#d97bff","#ff5eb8","#5effd5","#ffaa5e"];
+const COLS = [
+  {key:"date",label:"DATE"},{key:"ticker",label:"TICKER"},{key:"shares",label:"SHARES"},
+  {key:"costBasis",label:"COST/SH"},{key:"salePrice",label:"SALE/SH"},
+  {key:"proceeds",label:"PROCEEDS"},{key:"pl",label:"P&L"},{key:"ret",label:"RETURN"},
+  {key:"_synced",label:"SYNC"},{key:"_actions",label:""}
+];
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let sales = [];
+let editId = null;
+let sortKey = "date", sortDir = "desc";
+let filterTicker = "";
+let tickerColorMap = {};
+let scriptUrl = "";
+let isSyncing = false;
+
+// ─── Persist ──────────────────────────────────────────────────────────────────
+function loadData() {
+  try { sales = JSON.parse(localStorage.getItem("stockSales") || "[]"); } catch(e) { sales=[]; }
+  scriptUrl = localStorage.getItem("scriptUrl") || "";
+  if (scriptUrl) document.getElementById("scriptUrl").value = scriptUrl;
+}
+function saveLocal() { localStorage.setItem("stockSales", JSON.stringify(sales)); }
+function saveScriptUrl(url) { scriptUrl=url; localStorage.setItem("scriptUrl",url); }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+const fmt = v => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",minimumFractionDigits:2}).format(v);
+const daysLeft = () => Math.max(0, Math.ceil((DEADLINE-new Date())/86400000));
+const pl = s => (s.salePrice-s.costBasis)*s.shares;
+const proceeds = s => s.salePrice*s.shares;
+const ret = s => { const c=s.costBasis*s.shares; return c?((pl(s)/c)*100).toFixed(2):"0.00"; };
+function getTickerColor(t) {
+  if (!tickerColorMap[t]) tickerColorMap[t]=TICKER_COLORS[Object.keys(tickerColorMap).length%TICKER_COLORS.length];
+  return tickerColorMap[t];
+}
+function rebuildColorMap() { tickerColorMap={}; [...new Set(sales.map(s=>s.ticker))].forEach(t=>getTickerColor(t)); }
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+let toastTimer;
+function showToast(msg, type="") {
+  const t = document.getElementById("toast");
+  t.textContent=msg; t.className="show "+(type||"");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.className="",2800);
+}
+
+// ─── Sync Status UI ───────────────────────────────────────────────────────────
+function setSyncStatus(state, msg) {
+  const dot=document.getElementById("syncDot"), label=document.getElementById("syncLabel");
+  dot.className="sync-dot "+(state||"");
+  label.textContent=msg;
+}
+
+// ─── Google Sheets Sync ───────────────────────────────────────────────────────
+async function syncToSheets(salesToSync) {
+  if (!scriptUrl) return false;
+  try {
+    const res = await fetch(scriptUrl, {
+      method:"POST",
+      body: JSON.stringify({ action:"sync", sales: salesToSync })
+    });
+    const data = await res.json();
+    return data.status === "ok";
+  } catch(e) { return false; }
+}
+
+async function importFromSheets() {
+  if (!scriptUrl) { showToast("No Sheets URL configured — click ⚙ SHEETS first","error"); return; }
+  setSyncStatus("syncing","Importing from Google Sheets…");
+  try {
+    const url = scriptUrl + "?action=getAll&t=" + Date.now();
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.status==="ok" && Array.isArray(data.sales)) {
+      if (data.sales.length === 0) { showToast("Sheet is empty — nothing to import",""); setSyncStatus("connected","Connected to Google Sheets"); return; }
+      const confirmMsg = `Import ${data.sales.length} sale(s) from Google Sheets? This will REPLACE your local data.`;
+      if (!confirm(confirmMsg)) { setSyncStatus("connected","Connected to Google Sheets"); return; }
+      sales = data.sales.map(s=>({
+        id: s.id || Date.now()+Math.random(),
+        ticker: s.ticker, shares: parseFloat(s.shares),
+        costBasis: parseFloat(s.costBasis), salePrice: parseFloat(s.salePrice),
+        date: s.date, notes: s.notes||"", synced: true
+      }));
+      saveLocal(); rebuildColorMap(); renderAll();
+      showToast(`Imported ${sales.length} sale(s) from Google Sheets ✓`,"success");
+      setSyncStatus("connected","Connected · Last synced just now");
+    } else { throw new Error("Bad response"); }
+  } catch(e) {
+    showToast("Import failed — check your Sheets URL","error");
+    setSyncStatus("error","Sync error — check URL in ⚙ SHEETS");
+  }
+}
+
+async function syncAllNow() {
+  if (!scriptUrl) { showToast("No Sheets URL configured — click ⚙ SHEETS first","error"); return; }
+  if (isSyncing) return;
+  isSyncing=true;
+  setSyncStatus("syncing","Syncing…");
+  const ok = await syncToSheets(sales);
+  isSyncing=false;
+  if (ok) {
+    sales = sales.map(s=>({...s, synced:true}));
+    saveLocal(); renderTable();
+    showToast("Synced to Google Sheets ✓","success");
+    setSyncStatus("connected","Connected · Last synced just now");
+  } else {
+    showToast("Sync failed — check your connection","error");
+    setSyncStatus("error","Sync error — check URL in ⚙ SHEETS");
+  }
+}
+
+async function syncSingleSale(sale) {
+  if (!scriptUrl) return;
+  const ok = await syncToSheets([sale]);
+  if (ok) {
+    sales = sales.map(s=>s.id===sale.id?{...s,synced:true}:s);
+    saveLocal(); renderTable();
+    setSyncStatus("connected","Connected · Last synced just now");
+  } else {
+    setSyncStatus("error","Last sync failed — click ↻ SYNC NOW to retry");
+  }
+}
+
+async function testConnection() {
+  const url = document.getElementById("scriptUrl").value.trim();
+  if (!url) { showToast("Enter a URL first","error"); return; }
+  showToast("Testing connection…");
+  setSyncStatus("syncing","Testing…");
+  try {
+    const res = await fetch(url+"?action=ping&t="+Date.now());
+    const data = await res.json();
+    if (data.status==="ok") {
+      showToast("Connection successful ✓","success");
+      setSyncStatus("connected","Connected to Google Sheets");
+    } else throw new Error();
+  } catch(e) {
+    showToast("Connection failed — double-check your URL","error");
+    setSyncStatus("error","Connection failed");
+  }
+}
+
+// ─── Settings Panel ───────────────────────────────────────────────────────────
+document.getElementById("settingsBtn").addEventListener("click",()=>{
+  document.getElementById("settingsPanel").classList.toggle("open");
+});
+document.getElementById("closeSettingsBtn").addEventListener("click",()=>{
+  document.getElementById("settingsPanel").classList.remove("open");
+});
+document.getElementById("saveSettingsBtn").addEventListener("click",()=>{
+  const url = document.getElementById("scriptUrl").value.trim();
+  saveScriptUrl(url);
+  document.getElementById("settingsPanel").classList.remove("open");
+  if (url) {
+    setSyncStatus("connected","Connected to Google Sheets — click ↻ SYNC NOW to push data");
+    showToast("Sheets URL saved ✓","success");
+  } else {
+    setSyncStatus("","Google Sheets not connected — click ⚙ SHEETS to set up");
+  }
+});
+document.getElementById("testSyncBtn").addEventListener("click", testConnection);
+document.getElementById("syncNowBtn").addEventListener("click", syncAllNow);
+document.getElementById("importBtn").addEventListener("click", importFromSheets);
+
+// ─── Form ─────────────────────────────────────────────────────────────────────
+function updateFormPreview() {
+  const t=parseFloat(document.getElementById("f-sale").value||0);
+  const c=parseFloat(document.getElementById("f-cost").value||0);
+  const sh=parseFloat(document.getElementById("f-shares").value||0);
+  const p=document.getElementById("formPreview");
+  if(t&&c&&sh){
+    const proc=t*sh, gain=(t-c)*sh;
+    p.innerHTML=`Proceeds: ${fmt(proc)} &nbsp;·&nbsp; P&L: <span style="color:${gain>=0?"var(--green)":"var(--red)"}">${fmt(gain)}</span>`;
+  } else p.innerHTML="";
+}
+["f-sale","f-cost","f-shares"].forEach(id=>document.getElementById(id).addEventListener("input",updateFormPreview));
+
+function resetForm() {
+  ["f-ticker","f-shares","f-cost","f-sale","f-notes"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("f-date").value=new Date().toISOString().split("T")[0];
+  document.getElementById("formPreview").innerHTML="";
+  editId=null;
+  document.getElementById("formTitle").textContent="LOG NEW SALE";
+  document.getElementById("submitBtn").textContent="LOG SALE";
+}
+function openForm(){ document.getElementById("formPanel").classList.add("open"); document.getElementById("toggleFormBtn").textContent="CANCEL"; }
+function closeForm(){ document.getElementById("formPanel").classList.remove("open"); document.getElementById("toggleFormBtn").textContent="+ LOG SALE"; resetForm(); }
+
+document.getElementById("toggleFormBtn").addEventListener("click",()=>{
+  document.getElementById("formPanel").classList.contains("open")?closeForm():(resetForm(),openForm());
+});
+document.getElementById("cancelFormBtn").addEventListener("click",closeForm);
+
+function startEdit(id) {
+  const s=sales.find(x=>x.id===id); if(!s) return;
+  editId=id;
+  document.getElementById("f-ticker").value=s.ticker;
+  document.getElementById("f-shares").value=s.shares;
+  document.getElementById("f-cost").value=s.costBasis;
+  document.getElementById("f-sale").value=s.salePrice;
+  document.getElementById("f-date").value=s.date;
+  document.getElementById("f-notes").value=s.notes||"";
+  document.getElementById("formTitle").textContent="EDIT SALE";
+  document.getElementById("submitBtn").textContent="SAVE CHANGES";
+  openForm(); updateFormPreview();
+}
+
+document.getElementById("submitBtn").addEventListener("click",async()=>{
+  const ticker=document.getElementById("f-ticker").value.trim().toUpperCase();
+  const shares=parseFloat(document.getElementById("f-shares").value);
+  const cost=parseFloat(document.getElementById("f-cost").value);
+  const sale=parseFloat(document.getElementById("f-sale").value);
+  const date=document.getElementById("f-date").value;
+  const notes=document.getElementById("f-notes").value.trim();
+  if(!ticker||!shares||!cost||!sale||!date){ showToast("Fill in all required fields","error"); return; }
+  const entry={id:editId||Date.now(),ticker,shares,costBasis:cost,salePrice:sale,date,notes,synced:false};
+  if(editId){ sales=sales.map(s=>s.id===editId?entry:s); }
+  else { sales=[entry,...sales]; }
+  saveLocal(); rebuildColorMap(); closeForm(); renderAll();
+  showToast(editId?"Sale updated":"Sale logged ✓","success");
+  if(scriptUrl) {
+    setSyncStatus("syncing","Syncing…");
+    await syncSingleSale(entry);
+  }
+});
+
+// ─── CSV Export ───────────────────────────────────────────────────────────────
+document.getElementById("exportBtn").addEventListener("click",()=>{
+  if(!sales.length){ showToast("No sales to export","error"); return; }
+  const h=["id","Date","Ticker","Shares","Cost Basis/sh","Sale Price/sh","Proceeds","P&L","Return %","Notes","Synced"];
+  const rows=sales.map(s=>[s.id,s.date,s.ticker,s.shares,s.costBasis,s.salePrice,proceeds(s).toFixed(2),pl(s).toFixed(2),ret(s),s.notes||"",s.synced?"yes":"no"]);
+  const csv=[h,...rows].map(r=>r.map(v=>`"${v}"`).join(",")).join("\n");
+  const a=document.createElement("a");
+  a.href="data:text/csv;charset=utf-8,"+encodeURIComponent(csv);
+  a.download="stock-sales.csv"; a.click();
+  showToast("CSV downloaded ✓","success");
+});
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderStats() {
+  const total=sales.reduce((s,x)=>s+proceeds(x),0);
+  const totalPL=sales.reduce((s,x)=>s+pl(x),0);
+  const rem=Math.max(GOAL-total,0);
+  const dl=daysLeft();
+  const dpd=dl>0?rem/dl:0;
+  const data=[
+    {label:"TOTAL PROCEEDS",value:fmt(total),color:"var(--accent)"},
+    {label:"REMAINING TO GOAL",value:fmt(rem)},
+    {label:"TOTAL P&L",value:fmt(totalPL),color:totalPL>=0?"var(--green)":"var(--red)"},
+    {label:"DAYS LEFT",value:dl,sub:"to Nov 1"},
+    {label:"NEEDED / DAY",value:fmt(dpd),sub:"to hit goal"},
+    {label:"SALES LOGGED",value:sales.length},
+  ];
+  document.getElementById("statsGrid").innerHTML=data.map(d=>`
+    <div class="stat-card">
+      <div class="stat-label">${d.label}</div>
+      <div class="stat-value" style="color:${d.color||"var(--text)"}">${d.value}</div>
+      ${d.sub?`<div class="stat-sub">${d.sub}</div>`:""}
+    </div>`).join("");
+  const pct=Math.min((total/GOAL)*100,100);
+  document.getElementById("progressPct").textContent=pct.toFixed(1)+"%";
+  document.getElementById("progressFill").style.width=pct+"%";
+  document.getElementById("progressCurrent").textContent=fmt(total);
+}
+
+function renderBreakdown() {
+  const tickers=[...new Set(sales.map(s=>s.ticker))];
+  const card=document.getElementById("breakdownCard");
+  if(!tickers.length){ card.style.display="none"; return; }
+  card.style.display="block";
+  const totals=tickers.map(t=>{
+    const ts=sales.filter(s=>s.ticker===t);
+    return {ticker:t,proceeds:ts.reduce((s,x)=>s+proceeds(x),0),pl:ts.reduce((s,x)=>s+pl(x),0)};
+  }).sort((a,b)=>b.proceeds-a.proceeds);
+  document.getElementById("tickerChips").innerHTML=totals.map(t=>{
+    const color=getTickerColor(t.ticker);
+    const active=filterTicker===t.ticker;
+    return `<div class="ticker-chip${active?" active":""}" data-ticker="${t.ticker}" style="border-color:${active?color:"var(--border2)"};">
+      <div class="ticker-chip-name" style="color:${color}">${t.ticker}</div>
+      <div class="ticker-chip-proceeds">${fmt(t.proceeds)}</div>
+      <div class="ticker-chip-pl ${t.pl>=0?"pos":"neg"}">${t.pl>=0?"+":""}${fmt(t.pl)}</div>
+    </div>`;
+  }).join("");
+  document.getElementById("tickerChips").querySelectorAll(".ticker-chip").forEach(c=>{
+    c.addEventListener("click",()=>{ filterTicker=filterTicker===c.dataset.ticker?"":c.dataset.ticker; renderAll(); });
+  });
+  const note=document.getElementById("filterNote");
+  if(filterTicker){ note.style.display="block"; note.innerHTML=`Filtering by <span style="color:var(--accent)">${filterTicker}</span> — click to clear`; }
+  else note.style.display="none";
+}
+
+function renderTable() {
+  const filtered=sales.filter(s=>!filterTicker||s.ticker===filterTicker);
+  const sorted=[...filtered].sort((a,b)=>{
+    let av,bv;
+    if(sortKey==="pl"){av=pl(a);bv=pl(b);}
+    else if(sortKey==="proceeds"){av=proceeds(a);bv=proceeds(b);}
+    else if(sortKey==="ret"){av=parseFloat(ret(a));bv=parseFloat(ret(b));}
+    else{av=a[sortKey];bv=b[sortKey];}
+    if(typeof av==="string") return sortDir==="asc"?av.localeCompare(bv):bv.localeCompare(av);
+    return sortDir==="asc"?av-bv:bv-av;
+  });
+  document.getElementById("tableTitle").textContent=`SALES LOG${filterTicker?" · "+filterTicker:""} (${sorted.length})`;
+  document.getElementById("clearFilterBtn").style.display=filterTicker?"":"none";
+  document.getElementById("tableEmpty").style.display=sorted.length?"none":"block";
+  document.getElementById("tableWrap").style.display=sorted.length?"block":"none";
+
+  const head=document.getElementById("tableHead");
+  head.innerHTML=COLS.map(c=>{
+    if(c.key==="_actions"||c.key==="_synced") return `<th>${c.label}</th>`;
+    const active=sortKey===c.key;
+    return `<th data-key="${c.key}">${c.label}<span class="sort-icon${active?" active":""}">${active?(sortDir==="asc"?"▲":"▼"):"⇅"}</span></th>`;
+  }).join("");
+  head.querySelectorAll("th[data-key]").forEach(th=>{
+    th.addEventListener("click",()=>{
+      sortKey===th.dataset.key?sortDir=sortDir==="asc"?"desc":"asc":(sortKey=th.dataset.key,sortDir="desc");
+      renderTable();
+    });
+  });
+
+  document.getElementById("tableBody").innerHTML=sorted.map(s=>{
+    const color=getTickerColor(s.ticker);
+    const g=pl(s),p=proceeds(s),r=ret(s);
+    const syncIcon=scriptUrl?(s.synced?`<span class="sync-indicator synced" title="Synced">✓</span>`:`<span class="sync-indicator pending" title="Not yet synced">○</span>`):"";
+    return `<tr>
+      <td class="td-dim">${s.date}</td>
+      <td><span class="chip" style="background:${color}22;color:${color}">${s.ticker}</span></td>
+      <td>${s.shares.toLocaleString()}</td>
+      <td class="td-muted">${fmt(s.costBasis)}</td>
+      <td>${fmt(s.salePrice)}</td>
+      <td class="bold">${fmt(p)}</td>
+      <td class="${g>=0?"pos":"neg"} bold">${g>=0?"+":""}${fmt(g)}</td>
+      <td class="${parseFloat(r)>=0?"pos":"neg"}">${r}%</td>
+      <td>${syncIcon}</td>
+      <td><div class="td-actions">
+        <button class="btn-ghost btn-sm" data-edit="${s.id}">EDIT</button>
+        <button class="btn-ghost btn-sm btn-danger" data-del="${s.id}">DEL</button>
+      </div></td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("tableBody").querySelectorAll("[data-edit]").forEach(b=>{
+    b.addEventListener("click",()=>startEdit(parseInt(b.dataset.edit)));
+  });
+  document.getElementById("tableBody").querySelectorAll("[data-del]").forEach(b=>{
+    b.addEventListener("click",async()=>{
+      const id=parseInt(b.dataset.del);
+      if(!confirm("Delete this sale?")) return;
+      if(scriptUrl){
+        try {
+          await fetch(scriptUrl,{method:"POST",body:JSON.stringify({action:"delete",id})});
+        } catch(e){}
+      }
+      sales=sales.filter(s=>s.id!==id); saveLocal(); rebuildColorMap(); renderAll();
+      showToast("Sale deleted","");
+    });
+  });
+}
+
+function renderAll(){ renderStats(); renderBreakdown(); renderTable(); }
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+loadData();
+rebuildColorMap();
+renderAll();
+if(scriptUrl) setSyncStatus("connected","Connected to Google Sheets");
+setTimeout(()=>{
+  const pct=Math.min((sales.reduce((s,x)=>s+proceeds(x),0)/GOAL)*100,100);
+  document.getElementById("progressFill").style.width=pct+"%";
+},100);
+</script>
+</body>
+</html>
