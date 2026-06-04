@@ -492,13 +492,13 @@ document.getElementById("exportBtn").addEventListener("click",()=>{
 function renderStats() {
   const total=sales.reduce((s,x)=>s+proceeds(x),0);
   const totalPL=sales.reduce((s,x)=>s+pl(x),0);
-  const rem=Math.max(GOAL-total,0);
+  const rem=Math.max(GOAL-totalPL,0);
   const dl=daysLeft();
   const dpd=dl>0?rem/dl:0;
   const data=[
-    {label:"TOTAL PROCEEDS",value:fmt(total),color:"var(--accent)"},
-    {label:"REMAINING TO GOAL",value:fmt(rem)},
     {label:"TOTAL P&L",value:fmt(totalPL),color:totalPL>=0?"var(--green)":"var(--red)"},
+    {label:"REMAINING TO GOAL",value:fmt(rem)},
+    {label:"TOTAL PROCEEDS",value:fmt(total),color:"var(--accent)"},
     {label:"DAYS LEFT",value:dl,sub:"to Nov 1"},
     {label:"NEEDED / DAY",value:fmt(dpd),sub:"to hit goal"},
     {label:"SALES LOGGED",value:sales.length},
@@ -509,10 +509,10 @@ function renderStats() {
       <div class="stat-value" style="color:${d.color||"var(--text)"}">${d.value}</div>
       ${d.sub?`<div class="stat-sub">${d.sub}</div>`:""}
     </div>`).join("");
-  const pct=Math.min((total/GOAL)*100,100);
-  document.getElementById("progressPct").textContent=pct.toFixed(1)+"%";
+  const pct=Math.min((totalPL/GOAL)*100,100);
+  document.getElementById("progressPct").textContent=pct.toFixed(2)+"%";
   document.getElementById("progressFill").style.width=pct+"%";
-  document.getElementById("progressCurrent").textContent=fmt(total);
+  document.getElementById("progressCurrent").textContent=fmt(totalPL);
 }
 
 function renderBreakdown() {
@@ -617,7 +617,7 @@ rebuildColorMap();
 renderAll();
 if(scriptUrl) setSyncStatus("connected","Connected to Google Sheets");
 setTimeout(()=>{
-  const pct=Math.min((sales.reduce((s,x)=>s+proceeds(x),0)/GOAL)*100,100);
+  const pct=Math.min((sales.reduce((s,x)=>s+pl(x),0)/GOAL)*100,100);
   document.getElementById("progressFill").style.width=pct+"%";
 },100);
 </script>
